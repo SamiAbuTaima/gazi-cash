@@ -32,6 +32,28 @@
   background: #0f766e;
 }
 
+.gazi-debt-invoice-button {
+  display: block;
+  min-height: 29px;
+  margin-top: 6px;
+  border: 1px solid #bddbd6;
+  border-radius: 8px;
+  padding: 4px 9px;
+  color: #0f6b64;
+  background: #eaf7f4;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gazi-debt-invoice-button:hover {
+  border-color: #0f766e;
+  color: #fff;
+  background: #0f766e;
+}
+
 body.gazi-modal-open {
   overflow: hidden;
 }
@@ -554,6 +576,10 @@ body.gazi-modal-open {
     display: flex;
     width: 100%;
     margin: 7px 0 0;
+  }
+
+  .gazi-debt-invoice-button {
+    width: 100%;
   }
 
   .gazi-invoice-sheet {

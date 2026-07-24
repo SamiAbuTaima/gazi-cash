@@ -621,9 +621,54 @@
     });
   }
 
+  function installDebtInvoiceLinks() {
+    const heading = Array.from(document.querySelectorAll('h2, h3'))
+      .find((element) => element.textContent.trim() === 'فواتير الدين');
+    if (!heading) return;
+
+    const container = heading.closest('section') || heading.parentElement?.parentElement;
+    if (!container) return;
+
+    container.querySelectorAll('tbody tr').forEach((row) => {
+      if (row.querySelector('[data-debt-invoice-no]')) return;
+      const invoiceCell = Array.from(row.querySelectorAll('td'))
+        .find((cell) => /GC-[A-Z0-9]+/i.test(normalizeDigits(cell.textContent)));
+      if (!invoiceCell) return;
+
+      const match = normalizeDigits(invoiceCell.textContent).match(/GC-[A-Z0-9]+/i);
+      const invoiceNo = match?.[0];
+      if (!invoiceNo) return;
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'gazi-debt-invoice-button';
+      button.setAttribute('data-debt-invoice-no', invoiceNo);
+      button.innerHTML = '<span>عرض المشتريات</span>';
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        try {
+          await readInvoiceData();
+          const sale = state.sales.find(
+            (entry) => String(entry.invoiceNo).toUpperCase() === invoiceNo.toUpperCase(),
+          );
+          if (!sale) {
+            alert('تعذر العثور على بيانات هذه الفاتورة في هذا الجهاز.');
+            return;
+          }
+          openDetails(sale);
+        } catch (error) {
+          alert(error instanceof Error ? error.message : 'تعذر قراءة تفاصيل الفاتورة.');
+        }
+      });
+      invoiceCell.appendChild(button);
+    });
+  }
+
   function installEnhancements() {
     installHistoryButton();
     installReportInvoiceLinks();
+    installDebtInvoiceLinks();
   }
 
   document.addEventListener('keydown', (event) => {

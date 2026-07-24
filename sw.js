@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gazi-cash-shell-v6-report-invoices';
+const CACHE_NAME = 'gazi-cash-shell-v7-debt-invoice-details';
 const APP_SHELL = [
   './',
   './index.html',
