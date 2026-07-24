@@ -1,0 +1,586 @@
+.gazi-open-history-button {
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+.gazi-open-history-button span {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.gazi-report-invoices-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 31px;
+  margin-inline-start: 10px;
+  border: 1px solid #bddbd6;
+  border-radius: 9px;
+  padding: 5px 10px;
+  color: #0f6b64;
+  background: #eaf7f4;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gazi-report-invoices-button:hover {
+  border-color: #0f766e;
+  color: #fff;
+  background: #0f766e;
+}
+
+body.gazi-modal-open {
+  overflow: hidden;
+}
+
+.gazi-overlay {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(5, 29, 28, 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.gazi-history-modal,
+.gazi-details-modal {
+  width: min(1180px, 100%);
+  max-height: 94vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: #f7fbfa;
+  box-shadow: 0 30px 90px rgba(0, 23, 22, 0.36);
+}
+
+.gazi-details-modal {
+  width: min(820px, 100%);
+}
+
+.gazi-history-header {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 17px 22px;
+  color: white;
+  background: linear-gradient(135deg, #0f766e, #12504b);
+}
+
+.gazi-history-header h2,
+.gazi-history-header p {
+  margin: 0;
+}
+
+.gazi-history-header h2 {
+  font-size: 24px;
+}
+
+.gazi-history-header p {
+  margin-top: 5px;
+  color: #cce6e2;
+  font-size: 13px;
+}
+
+.gazi-close-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  color: white;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 29px;
+  line-height: 1;
+}
+
+.gazi-history-body,
+.gazi-details-body {
+  overflow: auto;
+  padding: 20px;
+}
+
+.gazi-quick-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.gazi-quick-ranges button,
+.gazi-refresh-button {
+  min-height: 38px;
+  border: 1px solid #cfe1de;
+  border-radius: 10px;
+  padding: 8px 13px;
+  color: #245b56;
+  background: #fff;
+  font-weight: 700;
+}
+
+.gazi-quick-ranges button:hover,
+.gazi-refresh-button:hover {
+  border-color: #0f766e;
+  background: #eaf7f4;
+}
+
+.gazi-history-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr minmax(220px, 1.6fr);
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #d8e7e4;
+  border-radius: 15px;
+  background: white;
+}
+
+.gazi-history-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.gazi-history-filters label > span {
+  color: #4a6964;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gazi-history-filters input,
+.gazi-history-filters select {
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  border: 1px solid #d4e1df;
+  border-radius: 11px;
+  padding: 8px 11px;
+  color: #173d3a;
+  background: #fbfdfd;
+  font: inherit;
+}
+
+.gazi-history-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 16px 2px 10px;
+}
+
+.gazi-history-toolbar > strong {
+  color: #315e59;
+}
+
+.gazi-history-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.gazi-history-summary > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #d8e7e4;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.gazi-history-summary span,
+.gazi-history-summary strong {
+  display: block;
+}
+
+.gazi-history-summary span {
+  color: #6b817e;
+  font-size: 11px;
+}
+
+.gazi-history-summary strong {
+  overflow: hidden;
+  margin-top: 7px;
+  color: #0d5c55;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gazi-history-table-wrap {
+  overflow: auto;
+  border: 1px solid #d8e7e4;
+  border-radius: 15px;
+  background: #fff;
+}
+
+.gazi-history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gazi-history-table th,
+.gazi-history-table td {
+  padding: 12px 11px;
+  border-bottom: 1px solid #e5eeec;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.gazi-history-table th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  color: #466963;
+  background: #edf6f4;
+  font-size: 12px;
+}
+
+.gazi-date-time {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gazi-date-time small {
+  color: #7a918e;
+}
+
+.gazi-payment-badge {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 62px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.gazi-payment-badge.cash {
+  color: #126f3d;
+  background: #ddf6e6;
+}
+
+.gazi-payment-badge.debt {
+  color: #a43627;
+  background: #ffe2df;
+}
+
+.gazi-payment-badge.transfer {
+  color: #225da3;
+  background: #e2eeff;
+}
+
+.gazi-payment-badge.other {
+  color: #73550d;
+  background: #fff0cb;
+}
+
+.gazi-details-button,
+.gazi-print-button,
+.gazi-share-button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 15px;
+  font-weight: 800;
+}
+
+.gazi-details-button,
+.gazi-print-button {
+  color: #fff;
+  background: #0f766e;
+}
+
+.gazi-share-button {
+  color: #0f6b64;
+  border: 1px solid #c8deda;
+  background: #eaf5f3;
+}
+
+.gazi-history-empty {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #78908c;
+  text-align: center;
+}
+
+.gazi-history-empty span {
+  font-size: 37px;
+}
+
+.gazi-history-empty strong {
+  margin-top: 9px;
+  color: #315e59;
+}
+
+.gazi-history-empty p {
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+
+.gazi-invoice-sheet {
+  border: 1px solid #d7e5e2;
+  border-radius: 17px;
+  padding: 20px;
+  color: #173d3a;
+  background: white;
+}
+
+.gazi-invoice-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #0f766e;
+}
+
+.gazi-invoice-brand h2,
+.gazi-invoice-brand p {
+  margin: 0;
+}
+
+.gazi-invoice-brand p {
+  margin-top: 3px;
+  color: #6c8581;
+  font-size: 12px;
+}
+
+.gazi-invoice-brand > strong {
+  color: #0f766e;
+  direction: ltr;
+}
+
+.gazi-invoice-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.gazi-invoice-meta span {
+  padding: 10px;
+  border-radius: 10px;
+  background: #f1f7f6;
+}
+
+.gazi-invoice-items {
+  overflow: auto;
+}
+
+.gazi-invoice-items table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gazi-invoice-items th,
+.gazi-invoice-items td {
+  padding: 11px;
+  border: 1px solid #dce8e6;
+  text-align: right;
+}
+
+.gazi-invoice-items th {
+  color: #466963;
+  background: #edf6f4;
+}
+
+.gazi-invoice-items td small {
+  display: block;
+  margin-top: 3px;
+  color: #7b918e;
+}
+
+.gazi-invoice-totals {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gazi-invoice-totals span {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #f1f7f6;
+}
+
+.gazi-invoice-totals .remaining {
+  color: #9b3c22;
+  background: #fff0ed;
+}
+
+.gazi-invoice-notes {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed #cadcd8;
+  border-radius: 10px;
+}
+
+.gazi-owner-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.gazi-owner-metrics span {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 12px;
+  border: 1px solid #d8e7e4;
+  border-radius: 11px;
+  color: #4f6f6a;
+  background: #f5faf9;
+}
+
+.gazi-owner-metrics strong {
+  color: #0f6b64;
+}
+
+.gazi-details-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .gazi-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .gazi-history-modal,
+  .gazi-details-modal {
+    width: 100%;
+    max-height: 96vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .gazi-history-header {
+    min-height: 70px;
+    padding: 13px 15px;
+  }
+
+  .gazi-history-header h2 {
+    font-size: 20px;
+  }
+
+  .gazi-history-body,
+  .gazi-details-body {
+    padding: 13px;
+  }
+
+  .gazi-history-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gazi-search-field {
+    grid-column: 1 / -1;
+  }
+
+  .gazi-history-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gazi-history-summary strong {
+    font-size: 15px;
+  }
+
+  .gazi-history-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .gazi-history-table,
+  .gazi-history-table tbody,
+  .gazi-history-table tr,
+  .gazi-history-table td {
+    display: block;
+  }
+
+  .gazi-history-table thead {
+    display: none;
+  }
+
+  .gazi-history-table tr {
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border: 1px solid #d8e7e4;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .gazi-history-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf2f1;
+    white-space: normal;
+  }
+
+  .gazi-history-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .gazi-history-table td::before {
+    content: attr(data-label);
+    color: #728985;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .gazi-open-history-button {
+    min-height: 39px;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .gazi-report-invoices-button {
+    display: flex;
+    width: 100%;
+    margin: 7px 0 0;
+  }
+
+  .gazi-invoice-sheet {
+    padding: 14px;
+  }
+
+  .gazi-invoice-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .gazi-details-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .gazi-history-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .gazi-search-field {
+    grid-column: auto;
+  }
+
+  .gazi-history-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
