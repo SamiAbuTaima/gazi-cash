@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gazi-cash-shell-v7-debt-invoice-details';
+const CACHE_NAME = 'gazi-cash-shell-v8-owner-withdrawals';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,8 @@ const APP_SHELL = [
   './index-CIUyuTgi.css',
   './invoice-history.js',
   './invoice-history.css',
+  './owner-withdrawals.js',
+  './owner-withdrawals.css',
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',
