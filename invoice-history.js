@@ -13,6 +13,7 @@
 
   const state = {
     sales: [],
+    debtPayments: [],
     currency: '₪',
     filters: {
       from: '',
@@ -108,11 +109,13 @@
   async function readInvoiceData() {
     const db = await openDatabase();
     try {
-      const transaction = db.transaction(['sales', 'settings'], 'readonly');
+      const transaction = db.transaction(['sales', 'debtPayments', 'settings'], 'readonly');
       const salesRequest = transaction.objectStore('sales').getAll();
+      const debtPaymentsRequest = transaction.objectStore('debtPayments').getAll();
       const settingsRequest = transaction.objectStore('settings').get('main');
-      const [sales, settings] = await Promise.all([
+      const [sales, debtPayments, settings] = await Promise.all([
         requestResult(salesRequest),
+        requestResult(debtPaymentsRequest),
         requestResult(settingsRequest),
       ]);
       state.sales = (sales || []).sort((left, right) => {
@@ -120,6 +123,7 @@
         const rightTime = new Date(right.createdAt || `${right.date}T00:00:00`).getTime();
         return rightTime - leftTime;
       });
+      state.debtPayments = debtPayments || [];
       state.currency = settings?.currency || '₪';
     } finally {
       db.close();
@@ -144,16 +148,80 @@
     });
   }
 
+  function customerKey(record) {
+    if (record?.customerSyncId) return `sync:${record.customerSyncId}`;
+    if (record?.customerId !== undefined && record?.customerId !== null) {
+      return `id:${record.customerId}`;
+    }
+    return `name:${String(record?.customerName || '').trim().toLowerCase()}`;
+  }
+
+  function saleKey(sale) {
+    if (sale?.syncId) return `sync:${sale.syncId}`;
+    if (sale?.id !== undefined && sale?.id !== null) return `id:${sale.id}`;
+    return `invoice:${sale?.invoiceNo || ''}`;
+  }
+
+  function debtAllocation() {
+    const salesByCustomer = new Map();
+    const paymentsByCustomer = new Map();
+    const allocation = new Map();
+
+    state.sales
+      .filter((sale) => sale.paymentMethod === 'debt')
+      .forEach((sale) => {
+        const key = customerKey(sale);
+        if (!salesByCustomer.has(key)) salesByCustomer.set(key, []);
+        salesByCustomer.get(key).push(sale);
+      });
+
+    state.debtPayments.forEach((payment) => {
+      const key = customerKey(payment);
+      paymentsByCustomer.set(
+        key,
+        Number(paymentsByCustomer.get(key) || 0) + Number(payment.amount || 0),
+      );
+    });
+
+    salesByCustomer.forEach((customerSales, customer) => {
+      let laterPayments = Number(paymentsByCustomer.get(customer) || 0);
+      customerSales
+        .sort((left, right) => {
+          const leftTime = new Date(left.createdAt || `${left.date}T00:00:00`).getTime();
+          const rightTime = new Date(right.createdAt || `${right.date}T00:00:00`).getTime();
+          return leftTime - rightTime;
+        })
+        .forEach((sale) => {
+          const initialRemaining = Math.max(
+            0,
+            Number(sale.total || 0) - Number(sale.paidAmount || 0),
+          );
+          const laterPaid = Math.min(initialRemaining, laterPayments);
+          laterPayments -= laterPaid;
+          allocation.set(saleKey(sale), {
+            laterPaid,
+            remaining: initialRemaining - laterPaid,
+          });
+        });
+    });
+
+    return allocation;
+  }
+
   function summaryFor(sales) {
+    const allocation = debtAllocation();
     return sales.reduce(
       (summary, sale) => {
         const total = Number(sale.total || 0);
+        const debt = allocation.get(saleKey(sale));
         const paid = sale.paymentMethod === 'debt'
-          ? Number(sale.paidAmount || 0)
+          ? Number(sale.paidAmount || 0) + Number(debt?.laterPaid || 0)
           : total;
         summary.total += total;
         summary.paid += paid;
-        summary.remaining += Math.max(0, total - paid);
+        summary.remaining += sale.paymentMethod === 'debt'
+          ? Number(debt?.remaining ?? Math.max(0, total - Number(sale.paidAmount || 0)))
+          : 0;
         summary.profit += Number(sale.profit || 0);
         return summary;
       },

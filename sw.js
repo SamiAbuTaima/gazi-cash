@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gazi-cash-shell-v10-owner-cash-withdrawals';
+const CACHE_NAME = 'gazi-cash-shell-v11-debt-payments-summary';
 const APP_SHELL = [
   './',
   './index.html',
