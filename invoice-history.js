@@ -14,6 +14,7 @@
   const state = {
     sales: [],
     debtPayments: [],
+    expenses: [],
     currency: '₪',
     filters: {
       from: '',
@@ -109,13 +110,18 @@
   async function readInvoiceData() {
     const db = await openDatabase();
     try {
-      const transaction = db.transaction(['sales', 'debtPayments', 'settings'], 'readonly');
+      const transaction = db.transaction(
+        ['sales', 'debtPayments', 'expenses', 'settings'],
+        'readonly',
+      );
       const salesRequest = transaction.objectStore('sales').getAll();
       const debtPaymentsRequest = transaction.objectStore('debtPayments').getAll();
+      const expensesRequest = transaction.objectStore('expenses').getAll();
       const settingsRequest = transaction.objectStore('settings').get('main');
-      const [sales, debtPayments, settings] = await Promise.all([
+      const [sales, debtPayments, expenses, settings] = await Promise.all([
         requestResult(salesRequest),
         requestResult(debtPaymentsRequest),
+        requestResult(expensesRequest),
         requestResult(settingsRequest),
       ]);
       state.sales = (sales || []).sort((left, right) => {
@@ -124,6 +130,7 @@
         return rightTime - leftTime;
       });
       state.debtPayments = debtPayments || [];
+      state.expenses = expenses || [];
       state.currency = settings?.currency || '₪';
     } finally {
       db.close();
@@ -145,6 +152,14 @@
       return `${sale.invoiceNo || ''} ${sale.customerName || ''} ${itemText}`
         .toLowerCase()
         .includes(query);
+    });
+  }
+
+  function filteredExpenses() {
+    return state.expenses.filter((expense) => {
+      if (state.filters.from && expense.date < state.filters.from) return false;
+      if (state.filters.to && expense.date > state.filters.to) return false;
+      return true;
     });
   }
 
@@ -210,7 +225,7 @@
 
   function summaryFor(sales) {
     const allocation = debtAllocation();
-    return sales.reduce(
+    const salesSummary = sales.reduce(
       (summary, sale) => {
         const total = Number(sale.total || 0);
         const debt = allocation.get(saleKey(sale));
@@ -222,11 +237,28 @@
         summary.remaining += sale.paymentMethod === 'debt'
           ? Number(debt?.remaining ?? Math.max(0, total - Number(sale.paidAmount || 0)))
           : 0;
-        summary.profit += Number(sale.profit || 0);
+        summary.grossProfit += Number(sale.profit || 0);
         return summary;
       },
-      { total: 0, paid: 0, remaining: 0, profit: 0 },
+      { total: 0, paid: 0, remaining: 0, grossProfit: 0 },
     );
+    const expenseTotal = filteredExpenses().reduce(
+      (total, expense) => total + Number(expense.amount || 0),
+      0,
+    );
+    const ownerCashWithdrawal = filteredExpenses()
+      .filter(
+        (expense) =>
+          expense.expenseType === 'ownerCashWithdrawal' ||
+          expense.type === 'سحب نقدي للمالك',
+      )
+      .reduce((total, expense) => total + Number(expense.amount || 0), 0);
+    return {
+      ...salesSummary,
+      expenseTotal,
+      ownerCashWithdrawal,
+      netProfit: salesSummary.grossProfit - expenseTotal,
+    };
   }
 
   function paymentBadge(method) {
@@ -249,7 +281,9 @@
       <div><span>إجمالي المبيعات</span><strong>${money(summary.total)}</strong></div>
       <div><span>المبلغ المحصّل</span><strong>${money(summary.paid)}</strong></div>
       <div><span>الديون المتبقية</span><strong>${money(summary.remaining)}</strong></div>
-      <div><span>إجمالي الربح</span><strong>${money(summary.profit)}</strong></div>
+      <div><span>ربح المبيعات قبل المصروفات</span><strong>${money(summary.grossProfit)}</strong></div>
+      <div><span>سحب المالك النقدي</span><strong>${money(summary.ownerCashWithdrawal)}</strong></div>
+      <div><span>صافي الربح بعد السحب والمصروفات</span><strong>${money(summary.netProfit)}</strong></div>
     `;
 
     if (!sales.length) {
