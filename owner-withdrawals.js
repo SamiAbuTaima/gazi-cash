@@ -7,6 +7,7 @@
     products: [],
     purchases: [],
     sales: [],
+    expenses: [],
     settings: { currency: '₪', ownerName: '' },
     cart: new Map(),
     search: '',
@@ -66,15 +67,17 @@
 
   async function readData() {
     const api = bridge();
-    const [products, purchases, sales, settings] = await Promise.all([
+    const [products, purchases, sales, expenses, settings] = await Promise.all([
       api.db.products.toArray(),
       api.db.purchases.toArray(),
       api.db.sales.toArray(),
+      api.db.expenses.toArray(),
       api.db.settings.get('main'),
     ]);
     state.products = products || [];
     state.purchases = purchases || [];
     state.sales = sales || [];
+    state.expenses = expenses || [];
     state.settings = settings || { currency: '₪', ownerName: '' };
   }
 
@@ -114,6 +117,16 @@
 
   function ownerRecords() {
     return state.purchases.filter((entry) => entry.purchaseType === OWNER_TYPE);
+  }
+
+  function cashRecords() {
+    return state.expenses
+      .filter((entry) => entry.expenseType === 'ownerCashWithdrawal')
+      .sort((left, right) => {
+        const leftTime = new Date(left.createdAt || `${left.date}T00:00:00`).getTime();
+        const rightTime = new Date(right.createdAt || `${right.date}T00:00:00`).getTime();
+        return rightTime - leftTime;
+      });
   }
 
   function groupedWithdrawals() {
@@ -369,6 +382,42 @@
     });
   }
 
+  function renderCashHistory() {
+    const modal = document.getElementById(MODAL_ID);
+    const container = modal?.querySelector('[data-owner-cash-history]');
+    const total = modal?.querySelector('[data-owner-cash-total]');
+    if (!container || !total) return;
+    const records = cashRecords();
+    total.textContent = money(
+      records.reduce((sum, record) => sum + Number(record.amount || 0), 0),
+    );
+
+    if (!records.length) {
+      container.innerHTML = '<div class="gazi-owner-empty">لا توجد سحوبات نقدية سابقة.</div>';
+      return;
+    }
+
+    container.innerHTML = records
+      .map((record) => `
+        <article class="gazi-owner-cash-card">
+          <span>
+            <b>${formatDate(record.date)}</b>
+            <small>${formatTime(record.createdAt)} • ${escapeHtml(record.ownerName || state.settings.ownerName || 'المالك')}</small>
+            ${record.notes ? `<em>${escapeHtml(record.notes)}</em>` : ''}
+          </span>
+          <strong>${money(record.amount)}</strong>
+          <button type="button" data-delete-owner-cash="${record.id}">حذف</button>
+        </article>
+      `)
+      .join('');
+
+    container.querySelectorAll('[data-delete-owner-cash]').forEach((button) => {
+      button.addEventListener('click', () => {
+        deleteCashWithdrawal(Number(button.getAttribute('data-delete-owner-cash')));
+      });
+    });
+  }
+
   async function saveWithdrawal() {
     const modal = document.getElementById(MODAL_ID);
     const date = modal?.querySelector('[data-owner-date]')?.value || localDateKey();
@@ -451,6 +500,64 @@
     }
   }
 
+  async function saveCashWithdrawal() {
+    const modal = document.getElementById(MODAL_ID);
+    const dateInput = modal?.querySelector('[data-owner-cash-date]');
+    const amountInput = modal?.querySelector('[data-owner-cash-amount]');
+    const notesInput = modal?.querySelector('[data-owner-cash-notes]');
+    const saveButton = modal?.querySelector('[data-save-owner-cash]');
+    const date = dateInput?.value || localDateKey();
+    const amount = Number(amountInput?.value || 0);
+    const notes = notesInput?.value.trim() || '';
+    if (!saveButton || amount <= 0) {
+      setStatus('أدخل مبلغ السحب النقدي.', 'error');
+      return;
+    }
+
+    if (!window.confirm(`تأكيد سحب ${money(amount)} نقدًا للمالك؟\nسيُخصم المبلغ من صافي الربح.`)) {
+      return;
+    }
+
+    saveButton.disabled = true;
+    saveButton.textContent = 'جارٍ الحفظ…';
+    try {
+      await bridge().add('expenses', {
+        date,
+        department: 'المالك',
+        type: 'سحب نقدي للمالك',
+        amount,
+        notes,
+        createdAt: new Date().toISOString(),
+        expenseType: 'ownerCashWithdrawal',
+        ownerName: state.settings.ownerName || 'المالك',
+      });
+      await readData();
+      amountInput.value = '';
+      notesInput.value = '';
+      renderCashHistory();
+      setStatus('تم تسجيل السحب النقدي وخصمه من صافي الربح.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'تعذر حفظ السحب النقدي.', 'error');
+    } finally {
+      saveButton.textContent = 'حفظ السحب النقدي';
+      saveButton.disabled = false;
+    }
+  }
+
+  async function deleteCashWithdrawal(recordId) {
+    const record = cashRecords().find((entry) => entry.id === recordId);
+    if (!record) return;
+    if (!window.confirm('حذف هذا السحب النقدي؟ سيعود المبلغ إلى صافي الربح.')) return;
+    try {
+      await bridge().remove('expenses', record.id);
+      await readData();
+      renderCashHistory();
+      setStatus('تم حذف السحب النقدي وإعادة احتساب صافي الربح.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'تعذر حذف السحب النقدي.', 'error');
+    }
+  }
+
   function closeModal() {
     document.getElementById(MODAL_ID)?.remove();
     document.body.classList.remove('gazi-owner-modal-open');
@@ -475,8 +582,8 @@
       <section class="gazi-owner-modal" role="dialog" aria-modal="true" aria-labelledby="gazi-owner-title">
         <header class="gazi-owner-head">
           <div>
-            <h2 id="gazi-owner-title">سحب بضاعة للمالك</h2>
-            <p>ينقص المخزون ورأس المال بسعر التكلفة فقط، ولا يُحسب بيعًا أو ربحًا أو دينًا.</p>
+            <h2 id="gazi-owner-title">سحب للمالك</h2>
+            <p>سحب البضاعة ينقص رأس المال بالتكلفة، والسحب النقدي يُخصم من صافي الربح.</p>
           </div>
           <button type="button" data-close-owner aria-label="إغلاق">×</button>
         </header>
@@ -518,6 +625,35 @@
             </div>
           </section>
 
+          <section class="gazi-owner-cash-section">
+            <div class="gazi-owner-history-title">
+              <span>
+                <h3>سحب نقدي للمالك</h3>
+                <p>يُسجل كمصروف ويُخصم مباشرة من صافي الربح</p>
+              </span>
+              <span>
+                <small>إجمالي السحوبات النقدية</small>
+                <strong data-owner-cash-total>${money(0)}</strong>
+              </span>
+            </div>
+            <div class="gazi-owner-cash-form">
+              <label>
+                <span>التاريخ</span>
+                <input type="date" value="${localDateKey()}" data-owner-cash-date>
+              </label>
+              <label>
+                <span>المبلغ</span>
+                <input type="number" min="0.01" step="0.01" placeholder="0.00" data-owner-cash-amount>
+              </label>
+              <label class="gazi-owner-cash-notes">
+                <span>ملاحظة</span>
+                <input type="text" placeholder="اختياري" data-owner-cash-notes>
+              </label>
+              <button type="button" data-save-owner-cash>حفظ السحب النقدي</button>
+            </div>
+            <div class="gazi-owner-cash-history" data-owner-cash-history></div>
+          </section>
+
           <section class="gazi-owner-history">
             <div class="gazi-owner-history-title">
               <span>
@@ -545,9 +681,11 @@
       renderProducts();
     });
     overlay.querySelector('[data-save-owner-withdrawal]').addEventListener('click', saveWithdrawal);
+    overlay.querySelector('[data-save-owner-cash]').addEventListener('click', saveCashWithdrawal);
     renderProducts();
     renderCart();
     renderHistory();
+    renderCashHistory();
   }
 
   function createButton(className, text) {
