@@ -2,7 +2,9 @@
   'use strict';
 
   const MODAL_ID = 'gazi-debt-transfer-modal';
+  const OPENING_MODAL_ID = 'gazi-opening-debt-modal';
   const TRANSFER_TYPE = 'customerDebtTransfer';
+  const OPENING_DEBT_TYPE = 'openingDebt';
   const state = {
     customers: [],
     sales: [],
@@ -58,6 +60,17 @@
     return payment.debtTransferType === TRANSFER_TYPE;
   }
 
+  function isOpeningDebt(payment) {
+    return payment.debtEntryType === OPENING_DEBT_TYPE;
+  }
+
+  function openingDebtAmount(payment) {
+    if (payment.openingDebtAmount !== undefined) {
+      return Math.abs(Number(payment.openingDebtAmount || 0));
+    }
+    return Math.abs(Number(payment.amount || 0));
+  }
+
   function calculateDebts() {
     return state.customers
       .map((customer) => {
@@ -75,8 +88,13 @@
           (total, sale) => total + Number(sale.paidAmount || 0),
           0,
         );
+        const openingRecords = payments.filter(isOpeningDebt);
+        const openingDebt = openingRecords.reduce(
+          (total, payment) => total + openingDebtAmount(payment),
+          0,
+        );
         const laterPayments = payments
-          .filter((payment) => !isTransfer(payment))
+          .filter((payment) => !isTransfer(payment) && !isOpeningDebt(payment))
           .reduce((total, payment) => total + Number(payment.amount || 0), 0);
         const transferredOut = payments
           .filter(
@@ -92,12 +110,20 @@
           .reduce((total, payment) => total + Math.abs(Number(payment.amount || 0)), 0);
         const balance = Math.max(
           0,
-          saleTotal + transferredIn - paidAtSale - laterPayments - transferredOut,
+          saleTotal +
+            openingDebt +
+            transferredIn -
+            paidAtSale -
+            laterPayments -
+            transferredOut,
         );
         return {
           customer,
           debtSales,
           saleTotal,
+          openingRecords,
+          openingDebt,
+          originalDebt: saleTotal + openingDebt,
           paidAtSale,
           laterPayments,
           transferredOut,
@@ -105,7 +131,12 @@
           balance,
         };
       })
-      .filter((debt) => debt.saleTotal > 0)
+      .filter(
+        (debt) =>
+          debt.originalDebt > 0 ||
+          debt.transferredIn > 0 ||
+          debt.transferredOut > 0,
+      )
       .sort((left, right) => right.balance - left.balance);
   }
 
@@ -153,6 +184,7 @@
 
     const signature = [
       debt.saleTotal,
+      debt.openingDebt,
       debt.paidAtSale,
       debt.laterPayments,
       debt.transferredOut,
@@ -161,9 +193,12 @@
     ].join('|');
     if (card.dataset.gaziDebtSignature !== signature) {
       const parts = [
-        `أصل الدين ${money(debt.saleTotal)}`,
+        `أصل الدين ${money(debt.originalDebt)}`,
         `المسدّد ${money(debt.paidAtSale + debt.laterPayments)}`,
       ];
+      if (debt.openingDebt > 0) {
+        parts.push(`قديم ${money(debt.openingDebt)}`);
+      }
       if (debt.transferredIn > 0) {
         parts.push(`منقول إليه ${money(debt.transferredIn)}`);
       }
@@ -199,6 +234,16 @@
     const heading = Array.from(document.querySelectorAll('.page-header h1'))
       .find((element) => element.textContent.trim() === 'الديون');
     if (!heading) return;
+    const header = heading.closest('.page-header');
+    if (header && !header.querySelector('[data-open-opening-debt]')) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary-button gazi-opening-debt-button';
+      button.setAttribute('data-open-opening-debt', 'true');
+      button.textContent = 'تسجيل دين قديم';
+      button.addEventListener('click', openOpeningDebtModal);
+      header.appendChild(button);
+    }
 
     const cards = Array.from(document.querySelectorAll('.debt-card'));
     const usedIds = new Set();
@@ -253,6 +298,37 @@
     });
   }
 
+  function openingDebtIdFromRow(row) {
+    const match = row.textContent.match(/OD-[A-Za-z0-9-]+/);
+    return match?.[0] || '';
+  }
+
+  function enhanceOpeningDebtRows() {
+    document.querySelectorAll('tbody tr').forEach((row) => {
+      const openingId = openingDebtIdFromRow(row);
+      if (!openingId || row.dataset.gaziOpeningDebt === openingId) return;
+      const record = state.debtPayments.find(
+        (payment) =>
+          isOpeningDebt(payment) &&
+          (payment.openingDebtId === openingId ||
+            String(payment.notes || '').includes(`[${openingId}]`)),
+      );
+      if (!record) return;
+      row.dataset.gaziOpeningDebt = openingId;
+      row.dataset.gaziOpeningDebtRecordId = String(record.id);
+      row.classList.add('gazi-opening-debt-row');
+      const cells = row.querySelectorAll('td');
+      if (cells[1]) {
+        cells[1].innerHTML =
+          `<span class="gazi-opening-debt-amount">+ ${money(openingDebtAmount(record))}</span>`;
+      }
+      if (cells[2]) {
+        const note = record.openingDebtNotes || '';
+        cells[2].textContent = `دين قديم قبل البرنامج${note ? ` — ${note}` : ''}`;
+      }
+    });
+  }
+
   function enhanceDebtDetails() {
     const headings = Array.from(document.querySelectorAll('h2, h3'))
       .filter((element) => element.textContent.trim().startsWith('سجل '));
@@ -269,6 +345,7 @@
       if (!summary) return;
       const signature = [
         debt.saleTotal,
+        debt.openingDebt,
         debt.paidAtSale,
         debt.laterPayments,
         debt.transferredOut,
@@ -278,7 +355,7 @@
       if (summary.dataset.gaziDebtSignature === signature) return;
       const spans = summary.querySelectorAll(':scope > span');
       if (spans[0]) {
-        spans[0].innerHTML = `أصل الدين <b>${money(debt.saleTotal)}</b>`;
+        spans[0].innerHTML = `أصل الدين <b>${money(debt.originalDebt)}</b>`;
       }
       if (spans[1]) {
         spans[1].innerHTML =
@@ -287,6 +364,18 @@
       if (spans[2]) {
         spans[2].innerHTML =
           `المتبقي <b class="danger-text">${money(debt.balance)}</b>`;
+      }
+      let openingSummary = summary.querySelector('[data-opening-debt-summary]');
+      if (debt.openingDebt > 0) {
+        if (!openingSummary) {
+          openingSummary = document.createElement('span');
+          openingSummary.setAttribute('data-opening-debt-summary', 'true');
+          summary.appendChild(openingSummary);
+        }
+        openingSummary.innerHTML =
+          `دين سابق للبرنامج <b>${money(debt.openingDebt)}</b>`;
+      } else {
+        openingSummary?.remove();
       }
       let transferSummary = summary.querySelector('[data-transfer-summary]');
       if (debt.transferredIn > 0 || debt.transferredOut > 0) {
@@ -331,6 +420,209 @@
     toast.textContent = message;
     document.body.appendChild(toast);
     window.setTimeout(() => toast.remove(), 4200);
+  }
+
+  function closeOpeningDebtModal() {
+    document.getElementById(OPENING_MODAL_ID)?.remove();
+    document.body.classList.remove('gazi-opening-debt-open');
+  }
+
+  function setOpeningDebtStatus(message, kind = 'error') {
+    const status = document.querySelector(
+      `#${OPENING_MODAL_ID} [data-opening-debt-status]`,
+    );
+    if (!status) return;
+    status.textContent = message;
+    status.className = `gazi-opening-debt-status ${kind}`;
+    status.hidden = false;
+  }
+
+  function toggleNewCustomerFields() {
+    const modal = document.getElementById(OPENING_MODAL_ID);
+    const selected = modal?.querySelector('[data-opening-customer]')?.value || '';
+    modal?.querySelector('[data-opening-new-customer]')?.toggleAttribute(
+      'hidden',
+      selected !== 'new',
+    );
+  }
+
+  async function openOpeningDebtModal() {
+    try {
+      await readData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'تعذر فتح تسجيل الدين القديم.');
+      return;
+    }
+
+    closeOpeningDebtModal();
+    const overlay = document.createElement('div');
+    overlay.id = OPENING_MODAL_ID;
+    overlay.className = 'gazi-opening-debt-overlay';
+    overlay.dir = 'rtl';
+    overlay.innerHTML = `
+      <section class="gazi-opening-debt-modal" role="dialog" aria-modal="true">
+        <header>
+          <span>
+            <h2>تسجيل دين قديم</h2>
+            <p>لدين موجود قبل استعمال البرنامج؛ يزيد رصيد الزبون فقط ولا يُسجل مبيعات أو أرباحًا جديدة.</p>
+          </span>
+          <button type="button" data-close-opening-debt aria-label="إغلاق">×</button>
+        </header>
+        <div class="gazi-opening-debt-body">
+          <div class="gazi-opening-debt-status" data-opening-debt-status hidden></div>
+          <label>
+            <span>اسم الزبون</span>
+            <select data-opening-customer>
+              <option value="new">إضافة اسم جديد</option>
+              ${state.customers
+                .map(
+                  (customer) => `
+                    <option value="${escapeHtml(customer.id)}">
+                      ${escapeHtml(customer.name)}${customer.phone ? ` — ${escapeHtml(customer.phone)}` : ''}
+                    </option>
+                  `,
+                )
+                .join('')}
+            </select>
+          </label>
+          <div class="gazi-opening-new-customer" data-opening-new-customer>
+            <label>
+              <span>الاسم الجديد</span>
+              <input type="text" placeholder="اسم الزبون" data-opening-customer-name>
+            </label>
+            <label>
+              <span>رقم الهاتف</span>
+              <input type="tel" placeholder="اختياري" data-opening-customer-phone>
+            </label>
+          </div>
+          <label>
+            <span>مجموع الدين القديم</span>
+            <input type="number" min="0.01" step="0.01" placeholder="0.00" data-opening-debt-amount>
+          </label>
+          <label>
+            <span>تاريخ تسجيل الدين</span>
+            <input type="date" value="${localDateKey()}" data-opening-debt-date>
+          </label>
+          <label>
+            <span>ملاحظة</span>
+            <textarea placeholder="مثال: رصيد سابق قبل البرنامج — اختياري" data-opening-debt-notes></textarea>
+          </label>
+          <div class="gazi-opening-debt-note">
+            هذا المبلغ لا يدخل في إجمالي المبيعات أو الأرباح لأنه دين سابق، لكنه يظهر في رصيد الزبون ويمكن تسديده ونقله عاديًا.
+          </div>
+          <button type="button" data-save-opening-debt>حفظ الدين القديم</button>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add('gazi-opening-debt-open');
+    overlay.addEventListener('mousedown', (event) => {
+      if (event.target === overlay) closeOpeningDebtModal();
+    });
+    overlay.querySelector('[data-close-opening-debt]').addEventListener(
+      'click',
+      closeOpeningDebtModal,
+    );
+    overlay.querySelector('[data-opening-customer]').addEventListener(
+      'change',
+      toggleNewCustomerFields,
+    );
+    overlay.querySelector('[data-save-opening-debt]').addEventListener(
+      'click',
+      saveOpeningDebt,
+    );
+    toggleNewCustomerFields();
+  }
+
+  async function saveOpeningDebt() {
+    const modal = document.getElementById(OPENING_MODAL_ID);
+    const saveButton = modal?.querySelector('[data-save-opening-debt]');
+    if (!modal || !saveButton) return;
+
+    const selection = modal.querySelector('[data-opening-customer]')?.value || 'new';
+    const amount = Number(modal.querySelector('[data-opening-debt-amount]')?.value || 0);
+    const date = modal.querySelector('[data-opening-debt-date]')?.value || localDateKey();
+    const notes = modal.querySelector('[data-opening-debt-notes]')?.value.trim() || '';
+    let customer = state.customers.find(
+      (entry) => String(entry.id) === String(selection),
+    );
+
+    if (amount <= 0) {
+      setOpeningDebtStatus('أدخل مجموع الدين القديم.');
+      return;
+    }
+
+    if (selection === 'new') {
+      const name = modal.querySelector('[data-opening-customer-name]')?.value.trim() || '';
+      const phone = modal.querySelector('[data-opening-customer-phone]')?.value.trim() || '';
+      if (!name) {
+        setOpeningDebtStatus('أدخل اسم الزبون.');
+        return;
+      }
+      const duplicate = state.customers.find(
+        (entry) =>
+          entry.name.trim() === name &&
+          (!phone || String(entry.phone || '').trim() === phone),
+      );
+      if (duplicate) {
+        customer = duplicate;
+      } else {
+        try {
+          const customerId = await bridge().add('customers', {
+            name,
+            phone,
+            notes: 'أُضيف عند تسجيل دين قديم',
+            createdAt: new Date().toISOString(),
+          });
+          customer = { id: customerId, name, phone };
+        } catch (error) {
+          setOpeningDebtStatus(
+            error instanceof Error ? error.message : 'تعذر إضافة اسم الزبون.',
+          );
+          return;
+        }
+      }
+    }
+
+    if (!customer) {
+      setOpeningDebtStatus('اختر اسم الزبون.');
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `تسجيل دين قديم بقيمة ${money(amount)} على ${customer.name}؟\nلن يُحسب كمبيعات أو أرباح جديدة.`,
+      )
+    ) {
+      return;
+    }
+
+    saveButton.disabled = true;
+    saveButton.textContent = 'جارٍ الحفظ…';
+    const openingDebtId = `OD-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    try {
+      await bridge().add('debtPayments', {
+        customerId: customer.id,
+        date,
+        amount: -amount,
+        notes: `دين قديم قبل البرنامج [${openingDebtId}]${notes ? ` — ${notes}` : ''}`,
+        createdAt: new Date().toISOString(),
+        debtEntryType: OPENING_DEBT_TYPE,
+        openingDebtId,
+        openingDebtAmount: amount,
+        openingDebtNotes: notes,
+      });
+      closeOpeningDebtModal();
+      await readData();
+      enhanceAll();
+      notify(`تم تسجيل دين قديم بقيمة ${money(amount)} على ${customer.name}.`);
+    } catch (error) {
+      setOpeningDebtStatus(
+        error instanceof Error ? error.message : 'تعذر حفظ الدين القديم.',
+      );
+      saveButton.disabled = false;
+      saveButton.textContent = 'حفظ الدين القديم';
+    }
   }
 
   async function openTransferModal(customerId) {
@@ -543,9 +835,40 @@
     }
   }
 
+  async function deleteOpeningDebt(recordId) {
+    const record = state.debtPayments.find(
+      (payment) =>
+        String(payment.id) === String(recordId) && isOpeningDebt(payment),
+    );
+    if (!record) return;
+    if (
+      !window.confirm(
+        `حذف الدين القديم بقيمة ${money(openingDebtAmount(record))}؟\nسينقص رصيد الزبون بهذا المبلغ.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await bridge().remove('debtPayments', record.id);
+      await readData();
+      enhanceAll();
+      notify('تم حذف الدين القديم وإعادة احتساب الرصيد.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'تعذر حذف الدين القديم.');
+    }
+  }
+
   function handleTransferDelete(event) {
     const button = event.target.closest?.('.icon-button.danger');
     const row = button?.closest('tr');
+    const openingDebtRecordId = row?.dataset.gaziOpeningDebtRecordId;
+    if (openingDebtRecordId) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      deleteOpeningDebt(openingDebtRecordId);
+      return;
+    }
     const pairId = row?.dataset.gaziTransferPair;
     if (!pairId) return;
     event.preventDefault();
@@ -557,6 +880,7 @@
   function enhanceAll() {
     enhanceDebtPage();
     enhanceTransferRows();
+    enhanceOpeningDebtRows();
     enhanceDebtDetails();
   }
 
@@ -584,6 +908,9 @@
     if (event.key === 'Escape' && document.getElementById(MODAL_ID)) {
       closeTransferModal();
     }
+    if (event.key === 'Escape' && document.getElementById(OPENING_MODAL_ID)) {
+      closeOpeningDebtModal();
+    }
   });
 
   const observer = new MutationObserver(scheduleEnhance);
@@ -596,6 +923,7 @@
 
   window.GaziDebtTransfers = {
     calculateDebts,
+    openOpeningDebt: openOpeningDebtModal,
     refresh: async () => {
       await readData();
       enhanceAll();

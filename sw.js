@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gazi-cash-shell-v16-debt-transfer-ledger';
+const CACHE_NAME = 'gazi-cash-shell-v17-stock-waste-opening-debts';
 const APP_SHELL = [
   './',
   './index.html',
@@ -10,6 +10,8 @@ const APP_SHELL = [
   './owner-withdrawals.css',
   './debt-transfers.js',
   './debt-transfers.css',
+  './stock-waste.js',
+  './stock-waste.css',
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',

@@ -209,6 +209,7 @@
   function debtAllocation() {
     const salesByCustomer = new Map();
     const paymentsByCustomer = new Map();
+    const openingDebtByCustomer = new Map();
     const allocation = new Map();
 
     state.sales
@@ -222,6 +223,20 @@
     state.debtPayments.forEach((payment) => {
       if (payment.debtTransferType === 'customerDebtTransfer') return;
       const key = customerKey(payment);
+      if (payment.debtEntryType === 'openingDebt') {
+        openingDebtByCustomer.set(
+          key,
+          Number(openingDebtByCustomer.get(key) || 0) +
+            Math.abs(
+              Number(
+                payment.openingDebtAmount !== undefined
+                  ? payment.openingDebtAmount
+                  : payment.amount || 0,
+              ),
+            ),
+        );
+        return;
+      }
       paymentsByCustomer.set(
         key,
         Number(paymentsByCustomer.get(key) || 0) + Number(payment.amount || 0),
@@ -229,7 +244,11 @@
     });
 
     salesByCustomer.forEach((customerSales, customer) => {
-      let laterPayments = Number(paymentsByCustomer.get(customer) || 0);
+      let laterPayments = Math.max(
+        0,
+        Number(paymentsByCustomer.get(customer) || 0) -
+          Number(openingDebtByCustomer.get(customer) || 0),
+      );
       customerSales
         .sort((left, right) => {
           const leftTime = new Date(left.createdAt || `${left.date}T00:00:00`).getTime();
