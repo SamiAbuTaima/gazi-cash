@@ -1,0 +1,215 @@
+.gazi-transfer-debt-button {
+  border-color: #c68a2d !important;
+  color: #8a570c !important;
+  background: #fff7e8 !important;
+}
+
+.gazi-debt-transfer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 54, 51, 0.62);
+  backdrop-filter: blur(7px);
+}
+
+.gazi-debt-transfer-modal {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
+  border-radius: 26px;
+  background: #fff;
+  color: #173d3a;
+  box-shadow: 0 24px 80px rgba(0, 45, 42, 0.28);
+}
+
+.gazi-debt-transfer-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 26px;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e, #115e59);
+}
+
+.gazi-debt-transfer-modal h2,
+.gazi-debt-transfer-modal p {
+  margin: 0;
+}
+
+.gazi-debt-transfer-modal p {
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.6;
+}
+
+.gazi-debt-transfer-modal [data-close-transfer] {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 28px;
+  cursor: pointer;
+}
+
+.gazi-debt-transfer-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 24px 26px 28px;
+}
+
+.gazi-debt-transfer-current,
+.gazi-debt-transfer-note,
+.gazi-debt-transfer-status,
+.gazi-debt-transfer-save {
+  grid-column: 1 / -1;
+}
+
+.gazi-debt-transfer-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #cfe4e1;
+  border-radius: 18px;
+  background: #eff8f6;
+}
+
+.gazi-debt-transfer-current strong {
+  color: #b45309;
+  font-size: 1.45rem;
+}
+
+.gazi-debt-transfer-body label {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.gazi-debt-transfer-body input,
+.gazi-debt-transfer-body select {
+  width: 100%;
+  min-height: 50px;
+  box-sizing: border-box;
+  border: 1px solid #cddfdd;
+  border-radius: 14px;
+  padding: 0 14px;
+  color: #173d3a;
+  background: #fff;
+  font: inherit;
+}
+
+.gazi-debt-transfer-note {
+  padding: 14px 16px;
+  border-radius: 14px;
+  color: #78520b;
+  background: #fff6da;
+  line-height: 1.6;
+}
+
+.gazi-debt-transfer-status {
+  padding: 12px 15px;
+  border-radius: 13px;
+  color: #a11e1e;
+  background: #fee9e7;
+}
+
+.gazi-debt-transfer-status.success {
+  color: #14643c;
+  background: #e4f7eb;
+}
+
+.gazi-debt-transfer-save {
+  min-height: 54px;
+  border: 0;
+  border-radius: 15px;
+  color: #fff;
+  background: #0f766e;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.gazi-debt-transfer-save:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.gazi-debt-transfer-row {
+  background: #fffaf0;
+}
+
+.gazi-transfer-in,
+.gazi-transfer-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 800;
+}
+
+.gazi-transfer-in {
+  color: #9a5d08;
+}
+
+.gazi-transfer-out {
+  color: #0f766e;
+}
+
+.gazi-debt-transfer-toast {
+  position: fixed;
+  z-index: 10080;
+  inset-inline-start: 20px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 15px 19px;
+  border-radius: 15px;
+  color: #fff;
+  background: #0f766e;
+  box-shadow: 0 12px 34px rgba(0, 45, 42, 0.28);
+  font-weight: 800;
+}
+
+body.gazi-debt-transfer-open {
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .gazi-debt-transfer-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .gazi-debt-transfer-modal {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .gazi-debt-transfer-modal > header,
+  .gazi-debt-transfer-body {
+    padding-inline: 18px;
+  }
+
+  .gazi-debt-transfer-body {
+    grid-template-columns: 1fr;
+  }
+
+  .gazi-debt-transfer-current,
+  .gazi-debt-transfer-note,
+  .gazi-debt-transfer-status,
+  .gazi-debt-transfer-save {
+    grid-column: 1;
+  }
+
+  .gazi-transfer-debt-button {
+    min-width: 88px;
+  }
+}

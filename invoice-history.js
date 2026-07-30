@@ -155,6 +155,35 @@
     });
   }
 
+  function matchingItems(sale) {
+    const query = state.filters.query.trim().toLowerCase();
+    if (!query) return [];
+    return (sale.items || []).filter((item) =>
+      `${item.name || ''} ${item.code || ''}`.toLowerCase().includes(query),
+    );
+  }
+
+  function productSearchActive(sales) {
+    return Boolean(
+      state.filters.query.trim() &&
+      sales.some((sale) => matchingItems(sale).length > 0),
+    );
+  }
+
+  function itemTotal(item) {
+    return Number(
+      item.total ?? Number(item.qty || 0) * Number(item.unitPrice || 0),
+    );
+  }
+
+  function itemProfit(item) {
+    return Number(
+      item.profit ??
+      itemTotal(item) -
+        Number(item.cost ?? Number(item.qty || 0) * Number(item.unitCost || 0)),
+    );
+  }
+
   function filteredExpenses() {
     return state.expenses.filter((expense) => {
       if (state.filters.from && expense.date < state.filters.from) return false;
@@ -191,6 +220,7 @@
       });
 
     state.debtPayments.forEach((payment) => {
+      if (payment.debtTransferType === 'customerDebtTransfer') return;
       const key = customerKey(payment);
       paymentsByCustomer.set(
         key,
@@ -225,22 +255,38 @@
 
   function summaryFor(sales) {
     const allocation = debtAllocation();
+    const productMode = productSearchActive(sales);
     const salesSummary = sales.reduce(
       (summary, sale) => {
-        const total = Number(sale.total || 0);
+        const invoiceTotal = Number(sale.total || 0);
+        const items = productMode ? matchingItems(sale) : [];
+        const total = productMode
+          ? items.reduce((sum, item) => sum + itemTotal(item), 0)
+          : invoiceTotal;
+        if (productMode && total <= 0) return summary;
         const debt = allocation.get(saleKey(sale));
-        const paid = sale.paymentMethod === 'debt'
+        const invoicePaid = sale.paymentMethod === 'debt'
           ? Number(sale.paidAmount || 0) + Number(debt?.laterPaid || 0)
-          : total;
-        summary.total += total;
-        summary.paid += paid;
-        summary.remaining += sale.paymentMethod === 'debt'
-          ? Number(debt?.remaining ?? Math.max(0, total - Number(sale.paidAmount || 0)))
+          : invoiceTotal;
+        const invoiceRemaining = sale.paymentMethod === 'debt'
+          ? Number(
+              debt?.remaining ??
+              Math.max(0, invoiceTotal - Number(sale.paidAmount || 0)),
+            )
           : 0;
-        summary.grossProfit += Number(sale.profit || 0);
+        const ratio = productMode && invoiceTotal > 0 ? total / invoiceTotal : 1;
+        summary.total += total;
+        summary.paid += invoicePaid * ratio;
+        summary.remaining += invoiceRemaining * ratio;
+        summary.grossProfit += productMode
+          ? items.reduce((sum, item) => sum + itemProfit(item), 0)
+          : Number(sale.profit || 0);
+        summary.units += productMode
+          ? items.reduce((sum, item) => sum + Number(item.qty || 0), 0)
+          : 0;
         return summary;
       },
-      { total: 0, paid: 0, remaining: 0, grossProfit: 0 },
+      { total: 0, paid: 0, remaining: 0, grossProfit: 0, units: 0 },
     );
     const expenseTotal = filteredExpenses().reduce(
       (total, expense) => total + Number(expense.amount || 0),
@@ -255,6 +301,7 @@
       .reduce((total, expense) => total + Number(expense.amount || 0), 0);
     return {
       ...salesSummary,
+      productMode,
       expenseTotal,
       ownerCashWithdrawal,
       netProfit: salesSummary.grossProfit - expenseTotal,
@@ -276,12 +323,14 @@
     const summaryContainer = modal.querySelector('[data-history-summary]');
     const resultsContainer = modal.querySelector('[data-history-results]');
 
-    resultCount.textContent = `${sales.length.toLocaleString('ar-EG')} فاتورة`;
+    resultCount.textContent = summary.productMode
+      ? `${sales.length.toLocaleString('ar-EG')} فاتورة • ${summary.units.toLocaleString('ar-EG')} وحدة مباعة`
+      : `${sales.length.toLocaleString('ar-EG')} فاتورة`;
     summaryContainer.innerHTML = `
-      <div><span>إجمالي المبيعات</span><strong>${money(summary.total)}</strong></div>
+      <div><span>${summary.productMode ? 'مبيعات الصنف المطابق' : 'إجمالي المبيعات'}</span><strong>${money(summary.total)}</strong></div>
       <div><span>المبلغ المحصّل</span><strong>${money(summary.paid)}</strong></div>
       <div><span>الديون المتبقية</span><strong>${money(summary.remaining)}</strong></div>
-      <div><span>ربح المبيعات قبل المصروفات</span><strong>${money(summary.grossProfit)}</strong></div>
+      <div><span>${summary.productMode ? 'ربح الصنف قبل المصروفات' : 'ربح المبيعات قبل المصروفات'}</span><strong>${money(summary.grossProfit)}</strong></div>
       <div><span>سحب المالك النقدي</span><strong>${money(summary.ownerCashWithdrawal)}</strong></div>
       <div><span>صافي الربح بعد السحب والمصروفات</span><strong>${money(summary.netProfit)}</strong></div>
     `;
