@@ -23,6 +23,7 @@
       query: '',
     },
   };
+  const deletionInProgress = new Set();
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -134,6 +135,80 @@
       state.currency = settings?.currency || '₪';
     } finally {
       db.close();
+    }
+  }
+
+  function canDeleteInvoiceDate(sale) {
+    return Boolean(
+      sale &&
+      (sale.date === localDateKey() || sale.date === shiftDays(-1)),
+    );
+  }
+
+  function sameCustomer(left, right) {
+    if (left?.customerSyncId && right?.customerSyncId) {
+      return String(left.customerSyncId) === String(right.customerSyncId);
+    }
+    if (
+      left?.customerId !== undefined &&
+      left?.customerId !== null &&
+      right?.customerId !== undefined &&
+      right?.customerId !== null
+    ) {
+      return String(left.customerId) === String(right.customerId);
+    }
+    return false;
+  }
+
+  function debtInvoiceHasPayments(sale) {
+    return Boolean(
+      sale?.paymentMethod === 'debt' &&
+      sale?.customerId &&
+      state.debtPayments.some((payment) => sameCustomer(payment, sale)),
+    );
+  }
+
+  async function deleteInvoice(sale) {
+    if (!sale) return false;
+    if (!canDeleteInvoiceDate(sale)) {
+      alert('يمكن حذف فواتير اليوم أو أمس فقط. الفواتير الأقدم محمية من الحذف.');
+      return false;
+    }
+    if (debtInvoiceHasPayments(sale)) {
+      alert('لا يمكن حذف فاتورة دين بعد وجود تسديدات للزبون. احذف التسديدات المرتبطة أولًا.');
+      return false;
+    }
+
+    const deletionKey = String(sale.syncId || sale.id || sale.invoiceNo || '');
+    if (!deletionKey || deletionInProgress.has(deletionKey)) return false;
+    if (
+      !confirm(
+        `حذف الفاتورة ${sale.invoiceNo}؟\nسيُعاد احتساب المخزون والديون والأرباح تلقائيًا.`,
+      )
+    ) {
+      return false;
+    }
+
+    const bridge = window.GaziCashBridge;
+    if (!bridge || typeof bridge.remove !== 'function') {
+      alert('تعذر تجهيز الحذف الآن. أغلق التطبيق وافتحه مجددًا ثم حاول مرة أخرى.');
+      return false;
+    }
+
+    deletionInProgress.add(deletionKey);
+    try {
+      await bridge.remove('sales', sale.id);
+      state.sales = state.sales.filter((entry) => String(entry.id) !== String(sale.id));
+      closeModal(DETAILS_ID);
+      await readInvoiceData();
+      renderHistory();
+      alert(`تم حذف الفاتورة ${sale.invoiceNo} وإعادة احتساب المخزون والديون.`);
+      return true;
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'تعذر حذف الفاتورة. حاول مرة أخرى.');
+      return false;
+    } finally {
+      deletionInProgress.delete(deletionKey);
     }
   }
 
@@ -376,7 +451,7 @@
               <th>الدفع</th>
               <th>الإجمالي</th>
               <th>الربح</th>
-              <th>التفاصيل</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -395,10 +470,15 @@
                     <td data-label="الدفع">${paymentBadge(sale.paymentMethod)}</td>
                     <td data-label="الإجمالي"><b>${money(sale.total)}</b></td>
                     <td data-label="الربح">${money(sale.profit)}</td>
-                    <td data-label="التفاصيل">
-                      <button class="gazi-details-button" type="button" data-invoice-id="${escapeHtml(sale.id)}">
-                        عرض
-                      </button>
+                    <td data-label="الإجراءات">
+                      <div class="gazi-invoice-row-actions">
+                        <button class="gazi-details-button" type="button" data-invoice-id="${escapeHtml(sale.id)}">
+                          عرض
+                        </button>
+                        ${canDeleteInvoiceDate(sale)
+                          ? `<button class="gazi-delete-button" type="button" data-delete-invoice-id="${escapeHtml(sale.id)}">حذف</button>`
+                          : ''}
+                      </div>
                     </td>
                   </tr>
                 `,
@@ -414,6 +494,13 @@
         const id = button.getAttribute('data-invoice-id');
         const sale = state.sales.find((entry) => String(entry.id) === String(id));
         if (sale) openDetails(sale);
+      });
+    });
+    resultsContainer.querySelectorAll('[data-delete-invoice-id]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const id = button.getAttribute('data-delete-invoice-id');
+        const sale = state.sales.find((entry) => String(entry.id) === String(id));
+        if (sale) await deleteInvoice(sale);
       });
     });
   }
@@ -536,7 +623,10 @@
           </div>
 
           <div class="gazi-history-toolbar">
-            <strong data-result-count></strong>
+            <div class="gazi-history-count">
+              <strong data-result-count></strong>
+              <small>الحذف متاح لفواتير اليوم وأمس فقط</small>
+            </div>
             <button type="button" class="gazi-refresh-button" data-refresh-history>↻ تحديث البيانات</button>
           </div>
 
@@ -661,6 +751,9 @@
           <div class="gazi-details-actions">
             <button type="button" class="gazi-print-button" data-print-invoice>طباعة الفاتورة</button>
             <button type="button" class="gazi-share-button" data-share-invoice>مشاركة الملخص</button>
+            ${canDeleteInvoiceDate(sale)
+              ? '<button type="button" class="gazi-delete-button" data-delete-current-invoice>حذف الفاتورة</button>'
+              : ''}
           </div>
         </div>
       </section>
@@ -671,6 +764,9 @@
 
     overlay.querySelector('[data-print-invoice]').addEventListener('click', () => printInvoice(sale));
     overlay.querySelector('[data-share-invoice]').addEventListener('click', () => shareInvoice(sale));
+    overlay.querySelector('[data-delete-current-invoice]')?.addEventListener('click', async () => {
+      await deleteInvoice(sale);
+    });
   }
 
   function printInvoice(sale) {
@@ -840,6 +936,40 @@
     installReportInvoiceLinks();
     installDebtInvoiceLinks();
   }
+
+  async function interceptRecentInvoiceDelete(event) {
+    const button = event.target.closest?.('.history-panel button.icon-button.danger');
+    if (!button) return;
+    const row = button.closest('tr');
+    const invoiceNo = normalizeDigits(row?.querySelector('td')?.textContent || '').trim();
+    if (!invoiceNo) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    try {
+      await readInvoiceData();
+      const sale = state.sales.find(
+        (entry) => normalizeDigits(entry.invoiceNo).trim() === invoiceNo,
+      );
+      if (!sale) {
+        alert('تعذر العثور على بيانات هذه الفاتورة. اضغط تحديث البيانات وحاول مرة أخرى.');
+        return;
+      }
+      await deleteInvoice(sale);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'تعذر قراءة بيانات الفاتورة.');
+    }
+  }
+
+  window.GaziInvoiceHistory = {
+    openHistory,
+    canDeleteInvoiceDate,
+    deleteInvoice,
+  };
+
+  document.addEventListener('click', interceptRecentInvoiceDelete, true);
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;

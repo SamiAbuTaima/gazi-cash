@@ -195,8 +195,19 @@ body.gazi-modal-open {
   margin: 16px 2px 10px;
 }
 
-.gazi-history-toolbar > strong {
+.gazi-history-count {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gazi-history-count > strong {
   color: #315e59;
+}
+
+.gazi-history-count > small {
+  color: #8a625d;
+  font-size: 11px;
 }
 
 .gazi-history-summary {
@@ -304,7 +315,8 @@ body.gazi-modal-open {
 
 .gazi-details-button,
 .gazi-print-button,
-.gazi-share-button {
+.gazi-share-button,
+.gazi-delete-button {
   min-height: 38px;
   border: 0;
   border-radius: 10px;
@@ -322,6 +334,23 @@ body.gazi-modal-open {
   color: #0f6b64;
   border: 1px solid #c8deda;
   background: #eaf5f3;
+}
+
+.gazi-delete-button {
+  color: #b42318;
+  border: 1px solid #f4c7c3;
+  background: #fff0ef;
+}
+
+.gazi-delete-button:hover {
+  color: #fff;
+  background: #c93f35;
+}
+
+.gazi-invoice-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .gazi-history-empty {
@@ -593,6 +622,14 @@ body.gazi-modal-open {
   .gazi-details-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .gazi-details-actions .gazi-delete-button {
+    grid-column: 1 / -1;
+  }
+
+  .gazi-invoice-row-actions {
+    justify-content: flex-end;
   }
 }
 

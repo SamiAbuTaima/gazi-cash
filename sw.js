@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gazi-cash-shell-v17-stock-waste-opening-debts';
+const CACHE_NAME = 'gazi-cash-shell-v18-delete-today-yesterday-invoices';
 const APP_SHELL = [
   './',
   './index.html',
