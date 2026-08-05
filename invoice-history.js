@@ -174,16 +174,17 @@
       alert('يمكن حذف فواتير اليوم أو أمس فقط. الفواتير الأقدم محمية من الحذف.');
       return false;
     }
-    if (debtInvoiceHasPayments(sale)) {
-      alert('لا يمكن حذف فاتورة دين بعد وجود تسديدات للزبون. احذف التسديدات المرتبطة أولًا.');
-      return false;
-    }
+    const keepsExistingPayments = debtInvoiceHasPayments(sale);
 
     const deletionKey = String(sale.syncId || sale.id || sale.invoiceNo || '');
     if (!deletionKey || deletionInProgress.has(deletionKey)) return false;
     if (
       !confirm(
-        `حذف الفاتورة ${sale.invoiceNo}؟\nسيُعاد احتساب المخزون والديون والأرباح تلقائيًا.`,
+        `حذف الفاتورة ${sale.invoiceNo}؟\nسيُعاد احتساب المخزون والديون والأرباح تلقائيًا.${
+          keepsExistingPayments
+            ? '\nالتسديدات المسجلة للزبون ستبقى كما هي ولن تُحذف.'
+            : ''
+        }`,
       )
     ) {
       return false;
@@ -202,7 +203,11 @@
       closeModal(DETAILS_ID);
       await readInvoiceData();
       renderHistory();
-      alert(`تم حذف الفاتورة ${sale.invoiceNo} وإعادة احتساب المخزون والديون.`);
+      alert(
+        `تم حذف الفاتورة ${sale.invoiceNo} وإعادة احتساب المخزون والديون.${
+          keepsExistingPayments ? ' التسديدات المسجلة بقيت كما هي.' : ''
+        }`,
+      );
       return true;
     } catch (error) {
       alert(error instanceof Error ? error.message : 'تعذر حذف الفاتورة. حاول مرة أخرى.');
