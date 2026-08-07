@@ -11,6 +11,7 @@
     debtPayments: [],
     settings: { currency: '₪' },
     debts: [],
+    debtSearchQuery: '',
     refreshPending: false,
   };
 
@@ -230,6 +231,114 @@
     }
   }
 
+  function normalizeDebtSearch(value) {
+    const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+    const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+    return String(value ?? '')
+      .normalize('NFKD')
+      .replace(/[\u064b-\u065f\u0670]/g, '')
+      .replace(/[\u0660-\u0669]/g, (digit) => String(arabicDigits.indexOf(digit)))
+      .replace(/[\u06f0-\u06f9]/g, (digit) => String(persianDigits.indexOf(digit)))
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function applyDebtSearch() {
+    const search = document.querySelector('[data-gazi-debt-search]');
+    if (!search) return;
+    const input = search.querySelector('[data-gazi-debt-search-input]');
+    const clearButton = search.querySelector('[data-gazi-debt-search-clear]');
+    const resultLabel = search.querySelector('[data-gazi-debt-search-count]');
+    const panel = search.closest('.panel');
+    const cards = Array.from(panel?.querySelectorAll('.debt-cards .debt-card') || []);
+    const query = normalizeDebtSearch(input?.value || state.debtSearchQuery);
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const name = card.querySelector('.debt-info strong')?.textContent || '';
+      const phone = card.querySelector('.debt-info small')?.textContent || '';
+      const searchable = normalizeDebtSearch(`${name} ${phone}`);
+      const compactSearchable = searchable.replace(/[^\p{L}\p{N}]/gu, '');
+      const compactQuery = query.replace(/[^\p{L}\p{N}]/gu, '');
+      const matches =
+        !query ||
+        searchable.includes(query) ||
+        (compactQuery && compactSearchable.includes(compactQuery));
+      card.hidden = !matches;
+      if (matches) visibleCount += 1;
+    });
+
+    if (clearButton) clearButton.hidden = !query;
+    if (resultLabel) {
+      const label = query
+        ? `ظهر ${visibleCount.toLocaleString('ar-EG')} من ${cards.length.toLocaleString('ar-EG')} زبون`
+        : `${cards.length.toLocaleString('ar-EG')} زبون`;
+      if (resultLabel.textContent !== label) resultLabel.textContent = label;
+    }
+
+    let empty = panel?.querySelector('[data-gazi-debt-search-empty]');
+    if (panel && !empty) {
+      empty = document.createElement('div');
+      empty.className = 'gazi-debt-search-empty';
+      empty.setAttribute('data-gazi-debt-search-empty', 'true');
+      empty.textContent = 'لا يوجد زبون يطابق البحث.';
+      panel.appendChild(empty);
+    }
+    if (empty) empty.hidden = !query || visibleCount > 0;
+  }
+
+  function installDebtSearch(cards) {
+    const cardsContainer = cards[0]?.closest('.debt-cards');
+    const panel = cardsContainer?.closest('.panel');
+    if (!cardsContainer || !panel) return;
+
+    let search = panel.querySelector('[data-gazi-debt-search]');
+    if (!search) {
+      search = document.createElement('div');
+      search.className = 'gazi-debt-search';
+      search.setAttribute('data-gazi-debt-search', 'true');
+      search.innerHTML = `
+        <div class="gazi-debt-search-field">
+          <span class="gazi-debt-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-4-4"></path>
+            </svg>
+          </span>
+          <input
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            data-gazi-debt-search-input
+            placeholder="ابحث باسم الزبون أو رقم الهاتف…"
+            aria-label="البحث في الديون"
+          />
+          <button type="button" data-gazi-debt-search-clear hidden aria-label="مسح البحث">×</button>
+        </div>
+        <small data-gazi-debt-search-count></small>
+      `;
+      panel.insertBefore(search, cardsContainer);
+      const input = search.querySelector('[data-gazi-debt-search-input]');
+      const clearButton = search.querySelector('[data-gazi-debt-search-clear]');
+      input.value = state.debtSearchQuery;
+      input.addEventListener('input', () => {
+        state.debtSearchQuery = input.value;
+        applyDebtSearch();
+      });
+      clearButton.addEventListener('click', () => {
+        state.debtSearchQuery = '';
+        input.value = '';
+        applyDebtSearch();
+        input.focus();
+      });
+    }
+    applyDebtSearch();
+  }
+
   function enhanceDebtPage() {
     const heading = Array.from(document.querySelectorAll('.page-header h1'))
       .find((element) => element.textContent.trim() === 'الديون');
@@ -246,6 +355,7 @@
     }
 
     const cards = Array.from(document.querySelectorAll('.debt-card'));
+    installDebtSearch(cards);
     const usedIds = new Set();
     cards.forEach((card) => {
       const debt = debtForCard(card, usedIds);

@@ -4,6 +4,88 @@
   background: #fff7e8 !important;
 }
 
+.gazi-debt-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.gazi-debt-search-field {
+  min-height: 50px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid #cfe0dd;
+  border-radius: 14px;
+  background: #f7fbfa;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.gazi-debt-search-field:focus-within {
+  border-color: #55aa9e;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+  background: #fff;
+}
+
+.gazi-debt-search-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #547a74;
+}
+
+.gazi-debt-search-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: #173d3a;
+  background: transparent;
+  font: inherit;
+}
+
+.gazi-debt-search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.gazi-debt-search-field button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: #0f766e;
+  background: #e1f2ef;
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gazi-debt-search > small {
+  min-width: 92px;
+  color: #5f7772;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.debt-card[hidden],
+.gazi-debt-search-empty[hidden] {
+  display: none !important;
+}
+
+.gazi-debt-search-empty {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  color: #6f8581;
+  text-align: center;
+}
+
 .gazi-debt-transfer-overlay {
   position: fixed;
   inset: 0;
@@ -350,6 +432,17 @@ body.gazi-opening-debt-open {
 }
 
 @media (max-width: 640px) {
+  .gazi-debt-search {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .gazi-debt-search > small {
+    min-width: 0;
+    text-align: right;
+  }
+
   .gazi-debt-transfer-overlay {
     align-items: end;
     padding: 0;

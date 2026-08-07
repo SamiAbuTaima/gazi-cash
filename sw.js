@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gazi-cash-shell-v19-delete-wrong-debt-invoices';
+const CACHE_NAME = 'gazi-cash-shell-v20-debt-search';
 const APP_SHELL = [
   './',
   './index.html',
