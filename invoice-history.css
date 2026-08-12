@@ -210,6 +210,95 @@ body.gazi-modal-open {
   font-size: 11px;
 }
 
+.gazi-capital-cycle {
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid #c8ded8;
+  border-radius: 17px;
+  background: linear-gradient(135deg, #f8fffd, #edf9f6);
+  box-shadow: 0 7px 22px rgba(15, 118, 110, 0.08);
+}
+
+.gazi-capital-cycle-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #d9ebe7;
+}
+
+.gazi-capital-cycle-heading > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gazi-capital-cycle-heading b {
+  color: #164f49;
+  font-size: 15px;
+}
+
+.gazi-capital-cycle-heading small,
+.gazi-capital-cycle-heading em {
+  color: #63807a;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.gazi-capital-cycle-heading em {
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #0f6b64;
+  background: #dff3ef;
+  white-space: nowrap;
+}
+
+.gazi-capital-cycle-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 13px;
+}
+
+.gazi-capital-cycle-stats > div {
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid #dceae7;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.gazi-capital-cycle-stats span {
+  color: #627a75;
+  font-size: 11px;
+}
+
+.gazi-capital-cycle-stats strong {
+  color: #164f49;
+  font-size: 18px;
+}
+
+.gazi-capital-cycle-stats .is-warning strong {
+  color: #b45309;
+}
+
+.gazi-capital-cycle-stats .is-complete strong,
+.gazi-capital-cycle-stats .is-surplus strong {
+  color: #15803d;
+}
+
+.gazi-capital-cycle-empty {
+  padding: 18px;
+  color: #657d78;
+  text-align: center;
+  font-size: 12px;
+}
+
 .gazi-history-summary {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -541,6 +630,19 @@ body.gazi-modal-open {
     grid-column: 1 / -1;
   }
 
+  .gazi-capital-cycle-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .gazi-capital-cycle-heading em {
+    white-space: normal;
+  }
+
+  .gazi-capital-cycle-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .gazi-history-summary {
     grid-template-columns: 1fr 1fr;
   }
@@ -645,5 +747,9 @@ body.gazi-modal-open {
   .gazi-history-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .gazi-capital-cycle-stats {
+    grid-template-columns: 1fr;
   }
 }

@@ -13,6 +13,7 @@
 
   const state = {
     sales: [],
+    purchases: [],
     debtPayments: [],
     expenses: [],
     currency: '₪',
@@ -112,15 +113,17 @@
     const db = await openDatabase();
     try {
       const transaction = db.transaction(
-        ['sales', 'debtPayments', 'expenses', 'settings'],
+        ['sales', 'purchases', 'debtPayments', 'expenses', 'settings'],
         'readonly',
       );
       const salesRequest = transaction.objectStore('sales').getAll();
+      const purchasesRequest = transaction.objectStore('purchases').getAll();
       const debtPaymentsRequest = transaction.objectStore('debtPayments').getAll();
       const expensesRequest = transaction.objectStore('expenses').getAll();
       const settingsRequest = transaction.objectStore('settings').get('main');
-      const [sales, debtPayments, expenses, settings] = await Promise.all([
+      const [sales, purchases, debtPayments, expenses, settings] = await Promise.all([
         requestResult(salesRequest),
+        requestResult(purchasesRequest),
         requestResult(debtPaymentsRequest),
         requestResult(expensesRequest),
         requestResult(settingsRequest),
@@ -130,6 +133,7 @@
         const rightTime = new Date(right.createdAt || `${right.date}T00:00:00`).getTime();
         return rightTime - leftTime;
       });
+      state.purchases = purchases || [];
       state.debtPayments = debtPayments || [];
       state.expenses = expenses || [];
       state.currency = settings?.currency || '₪';
@@ -270,6 +274,95 @@
       if (state.filters.to && expense.date > state.filters.to) return false;
       return true;
     });
+  }
+
+  function isRegularPurchase(purchase) {
+    return Boolean(
+      purchase &&
+      !['ownerWithdrawal', 'stockWaste'].includes(purchase.purchaseType) &&
+      Number(purchase.totalCost || 0) > 0 &&
+      Number(purchase.totalUnits || 0) > 0,
+    );
+  }
+
+  function isRealDebtCollection(payment) {
+    return Boolean(
+      payment &&
+      payment.debtTransferType !== 'customerDebtTransfer' &&
+      payment.debtEntryType !== 'openingDebt' &&
+      Number(payment.amount || 0) > 0,
+    );
+  }
+
+  function collectedAtSale(sale) {
+    if (sale.paymentMethod === 'debt') return Number(sale.paidAmount || 0);
+    return Number(sale.total || 0);
+  }
+
+  function latestPurchaseCycle() {
+    const regularPurchases = state.purchases.filter(isRegularPurchase);
+    if (!regularPurchases.length) return null;
+    const latestDate = regularPurchases.reduce(
+      (latest, purchase) => (!latest || purchase.date > latest ? purchase.date : latest),
+      '',
+    );
+    const latestPurchases = regularPurchases.filter(
+      (purchase) => purchase.date === latestDate,
+    );
+    const capital = latestPurchases.reduce(
+      (total, purchase) => total + Number(purchase.totalCost || 0),
+      0,
+    );
+    const salesCollected = state.sales
+      .filter((sale) => sale.date >= latestDate)
+      .reduce((total, sale) => total + collectedAtSale(sale), 0);
+    const debtCollected = state.debtPayments
+      .filter(
+        (payment) =>
+          payment.date >= latestDate && isRealDebtCollection(payment),
+      )
+      .reduce((total, payment) => total + Number(payment.amount || 0), 0);
+    const collected = salesCollected + debtCollected;
+    return {
+      latestDate,
+      purchaseCount: latestPurchases.length,
+      capital,
+      collected,
+      remaining: Math.max(0, capital - collected),
+      surplus: Math.max(0, collected - capital),
+    };
+  }
+
+  function renderCapitalCycle(container) {
+    if (!container) return;
+    const cycle = latestPurchaseCycle();
+    if (!cycle) {
+      container.innerHTML = `
+        <div class="gazi-capital-cycle-empty">
+          سجّل أول عملية من صفحة المشتريات، وسيظهر رأس مال آخر شراء هنا تلقائيًا.
+        </div>
+      `;
+      return;
+    }
+    container.innerHTML = `
+      <div class="gazi-capital-cycle-heading">
+        <span>
+          <b>دورة رأس مال آخر شراء</b>
+          <small>تلقائي من مشتريات ${formatDate(cycle.latestDate)} • ${cycle.purchaseCount.toLocaleString('ar-EG')} حركة شراء</small>
+        </span>
+        <em>يتبدل تلقائيًا عند تسجيل مشتريات بتاريخ أحدث</em>
+      </div>
+      <div class="gazi-capital-cycle-stats">
+        <div><span>رأس مال آخر شراء</span><strong>${money(cycle.capital)}</strong></div>
+        <div><span>المحصّل منذ آخر شراء</span><strong>${money(cycle.collected)}</strong></div>
+        <div class="${cycle.remaining > 0 ? 'is-warning' : 'is-complete'}">
+          <span>المتبقي لاسترداد رأس المال</span><strong>${money(cycle.remaining)}</strong>
+        </div>
+        <div class="${cycle.surplus > 0 ? 'is-surplus' : ''}">
+          <span>الفائض بعد استرداد رأس المال</span><strong>${money(cycle.surplus)}</strong>
+        </div>
+      </div>
+    `;
   }
 
   function customerKey(record) {
@@ -429,7 +522,10 @@
     const summary = summaryFor(sales);
     const resultCount = modal.querySelector('[data-result-count]');
     const summaryContainer = modal.querySelector('[data-history-summary]');
+    const capitalCycleContainer = modal.querySelector('[data-capital-cycle]');
     const resultsContainer = modal.querySelector('[data-history-results]');
+
+    renderCapitalCycle(capitalCycleContainer);
 
     resultCount.textContent = summary.productMode
       ? `${sales.length.toLocaleString('ar-EG')} فاتورة • ${summary.units.toLocaleString('ar-EG')} وحدة مباعة`
@@ -646,6 +742,7 @@
             <button type="button" class="gazi-refresh-button" data-refresh-history>↻ تحديث البيانات</button>
           </div>
 
+          <section class="gazi-capital-cycle" data-capital-cycle></section>
           <div class="gazi-history-summary" data-history-summary></div>
           <div data-history-results></div>
         </div>
