@@ -498,13 +498,18 @@
           expense.type === 'توزيع أرباح الشركاء',
       )
       .reduce((total, expense) => total + Number(expense.amount || 0), 0);
+    const latestPurchaseCapital = latestPurchaseCycle()?.capital || 0;
     return {
       ...salesSummary,
       productMode,
       expenseTotal,
       ownerCashWithdrawal,
       partnerProfitDistribution,
-      collectedAfterDistribution: salesSummary.paid - partnerProfitDistribution,
+      latestPurchaseCapital,
+      availableAfterDistributionAndCapital: Math.max(
+        0,
+        salesSummary.paid - partnerProfitDistribution - latestPurchaseCapital,
+      ),
       netProfit: salesSummary.grossProfit - expenseTotal,
     };
   }
@@ -534,7 +539,7 @@
       <div><span>${summary.productMode ? 'مبيعات الصنف المطابق' : 'إجمالي المبيعات'}</span><strong>${money(summary.total)}</strong></div>
       <div><span>المقبوض من الزبائن</span><strong>${money(summary.paid)}</strong></div>
       <div><span>أرباح موزعة للشركاء</span><strong>${money(summary.partnerProfitDistribution)}</strong></div>
-      <div><span>المبلغ المحصّل بعد التوزيع</span><strong>${money(summary.collectedAfterDistribution)}</strong></div>
+      <div><span>المبلغ المتاح بعد التوزيع ورأس مال آخر شراء</span><strong>${money(summary.availableAfterDistributionAndCapital)}</strong></div>
       <div><span>الديون المتبقية</span><strong>${money(summary.remaining)}</strong></div>
       <div><span>${summary.productMode ? 'ربح الصنف قبل المصروفات' : 'ربح المبيعات قبل المصروفات'}</span><strong>${money(summary.grossProfit)}</strong></div>
       <div><span>سحب المالك النقدي</span><strong>${money(summary.ownerCashWithdrawal)}</strong></div>
